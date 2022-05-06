@@ -1,0 +1,14 @@
+working_directory: /storage/home/kjk6173/scratch/
+samples:
+- AA
+- AB
+- AC
+- AD
+- AE
+- AF
+intermediate_directories:
+  - 160411_7001126F_0117_AHKWWWBCXX_1
+  - 160415_7001126F_0121_AHLFCKBCXX_2
+  - 160503_7001126F_0122_BHLCYKBCXX_3
+  - 160517_7001126F_0125_AHMWNJBCXX_4
+  - 160527_7001126F_0126_BHMN3LBCXX_5
