@@ -19,8 +19,8 @@ INTERMEDIATE_DIRECTORIES = ["160411_7001126F_0117_AHKWWWBCXX_1","160415_7001126F
 
 rule all:
     input:
-        expand(config["working_directory"] + "0_raw/trimmed/{wild}/fastq/{sample_name}_trimmed_fastqc.html", wild=INTERMEDIATE_DIRECTORIES, sample_name=SAMPLE_NAMES),
-        #expand(config["working_directory"] + "0_raw/variants/{wild}/{sample_name}_variants.vcf", wild=INTERMEDIATE_DIRECTORIES, sample_name=SAMPLE_NAMES)
+        #expand(config["working_directory"] + "0_raw/trimmed/{wild}/fastq/{sample_name}_trimmed_fastqc.html", wild=INTERMEDIATE_DIRECTORIES, sample_name=SAMPLE_NAMES),
+        expand(config["working_directory"] + "0_raw/variants/{wild}/{sample_name}_variants.vcf", wild=INTERMEDIATE_DIRECTORIES, sample_name=SAMPLE_NAMES),
         expand(config["working_directory"] + "0_raw/alignment/{wild}/{sample_name}_sorted.bam", wild=INTERMEDIATE_DIRECTORIES, sample_name=SAMPLE_NAMES)
 
 # Trim reads: Trim single-end reads with cutadapt
@@ -50,22 +50,28 @@ rule get_reference_transcriptome:
     shell:
         "cd " + config["working_directory"] + "&& " + "wget https://www.arabidopsis.org/download_files/Genes/TAIR10_genome_release/TAIR10_chromosome_files/TAIR10_chr_all.fas.gz"
 
+# Get chromosomes: Get the non-chloroplast and non-mitochondrial chromosomes from the reference transcriptome
+rule get_chromosomes:
+    output: 
+        config["working_directory"] + "TAIR10_genomic.fa"
+    shell:
+        "python3 format_genome.py"
 
 # Build ref transcriptome: Build the botwite2 index for the reference transcriptome 
 rule build_ref_transcriptome:
     input:
-        config["working_directory"] + "TAIR10_chr_all.fas.gz"
+        config["working_directory"] + "TAIR10_genomic.fa"
     output:
-        config["working_directory"] + "TAIR10_chr_all.fas.gz.1.bt2"
+        config["working_directory"] + "TAIR10_genomic.fa.1.bt2"
     shell:
         "bowtie2-build {input} {input}"
 
 # Align reads: Align reads with bowtie2 
 rule align_reads:
     input:
-        bowtie = config["working_directory"] + "TAIR10_chr_all.fas.gz.1.bt2",
+        bowtie = config["working_directory"] + "TAIR10_genomic.fa.1.bt2",
         reads = config["working_directory"] + "0_raw/trimmed/{dir}/fastq/{sample}_trimmed.fastq.gz",
-        genome = config["working_directory"] + "TAIR10_chr_all.fas.gz"
+        genome = config["working_directory"] + "TAIR10_genomic.fa"
     output:
         config["working_directory"] + "0_raw/alignment/{dir}/{sample}.bam"
     shell:
@@ -90,6 +96,7 @@ rule index_bam:
     shell:
         "samtools index {input}"
 
+
 # Unzip reference: Unzip the reference genome
 rule unzip_reference:
     input:
@@ -100,24 +107,24 @@ rule unzip_reference:
         "gunzip -c {input} > {output}"
     
     
-# # Determine genotype likelyhoods: 
-# rule determine_genotype_likelyhood:
-#     input:
-#         in_bam = config["working_directory"] + "0_raw/alignment/{dir}/{sample}_sorted.bam",
-#         index = config["working_directory"] + "0_raw/alignment/{dir}/{sample}_sorted.bam.bai",
-#         genome = config["working_directory"] + "TAIR10_chr_all.fas"
-#     output:
-#         config["working_directory"] + "0_raw/variants/{dir}/{sample}_genotypes.vcf"
-#     shell:
-#         "bcftools mpileup -Ov -f {input.genome} {input.in_bam} > {output}"
+# Determine genotype likelyhoods: 
+rule determine_genotype_likelyhood:
+    input:
+        in_bam = config["working_directory"] + "0_raw/alignment/{dir}/{sample}_sorted.bam",
+        index = config["working_directory"] + "0_raw/alignment/{dir}/{sample}_sorted.bam.bai",
+        genome = config["working_directory"] + "TAIR10_genomic.fa"
+    output:
+        config["working_directory"] + "0_raw/variants/{dir}/{sample}_genotypes.vcf"
+    shell:
+        "bcftools mpileup -Ov -f {input.genome} {input.in_bam} > {output}"
 
 
-# # Call variants: Call variants in the data using bcftools
-# rule call_variants:
-#     input:
-#         genotype = config["working_directory"] + "0_raw/variants/{dir}/{sample}_genotypes.vcf",
-#         genome = config["working_directory"] + "TAIR10_chr_all.fas"
-#     output:
-#         config["working_directory"] + "0_raw/variants/{dir}/{sample}_variants.vcf"
-#     shell:
-#         "bcftools call --ploidy 2 -vm -Ov {input.genotype} > {output}"
+# Call variants: Call variants in the data using bcftools
+rule call_variants:
+    input:
+        genotype = config["working_directory"] + "0_raw/variants/{dir}/{sample}_genotypes.vcf",
+        genome = config["working_directory"] + "TAIR10_genomic.fa"
+    output:
+        config["working_directory"] + "0_raw/variants/{dir}/{sample}_variants.vcf"
+    shell:
+        "bcftools call --ploidy 1 -vm -Ov {input.genotype} > {output}"
